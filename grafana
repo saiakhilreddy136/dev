@@ -1,0 +1,85 @@
+sai_akhil_reddy@DESKTOP-8LJCROC:~$ mkdir api-monitoring
+sai_akhil_reddy@DESKTOP-8LJCROC:~$ cd api-mointoring
+-bash: cd: api-mointoring: No such file or directory
+sai_akhil_reddy@DESKTOP-8LJCROC:~$ cd api-monitoring
+sai_akhil_reddy@DESKTOP-8LJCROC:~/api-monitoring$ nano app.py
+sai_akhil_reddy@DESKTOP-8LJCROC:~/api-monitoring$ nano Dockerfile
+sai_akhil_reddy@DESKTOP-8LJCROC:~/api-monitoring$ nano prometheus.yml
+sai_akhil_reddy@DESKTOP-8LJCROC:~/api-monitoring$ nano docker-compose.yml
+sai_akhil_reddy@DESKTOP-8LJCROC:~/api-monitoring$ docker-compose up --build
+WARN[0001] /home/sai_akhil_reddy/api-monitoring/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion
+[+] Running 22/22
+ ✔ grafana Pulled                                                     40.3s
+   ✔ 2d35ebdb57d9 Pull complete                                        7.5s
+   ✔ 64219f374b9d Pull complete                                        7.8s
+   ✔ 6354a365baff Pull complete                                        9.2s
+   ✔ 3848ee6eb714 Pull complete                                        9.4s
+   ✔ 43325dda64f5 Pull complete                                        9.4s
+   ✔ 0b5fac243a30 Pull complete                                        9.8s
+   ✔ ee221ea0bb34 Pull complete                                       21.1s
+   ✔ 960963c02289 Pull complete                                       29.7s
+   ✔ efdaab41b198 Pull complete                                       29.8s
+   ✔ abf90d36f2b0 Pull complete                                       29.9s
+ ✔ prometheus Pulled                                                  19.3s
+   ✔ 9fa9226be034 Pull complete                                        1.8s
+   ✔ 1617e25568b2 Pull complete                                        2.6s
+   ✔ 1d195e186706 Pull complete                                        7.1s
+   ✔ a3dbf675e35b Pull complete                                        8.6s
+   ✔ 481d3006e989 Pull complete                                        8.7s
+   ✔ 2c520e315aed Pull complete                                        8.7s
+   ✔ 02872a85ab69 Pull complete                                        8.8s
+   ✔ 8c7998df4188 Pull complete                                        8.8s
+   ✔ 67f6de79be21 Pull complete                                        8.9s
+   ✔ 7617b730a2c5 Pull complete                                        8.9s
+#1 [internal] load local bake definitions
+#1 reading from stdin 527B done
+#app.py
+from flask import Flask
+from prometheus_client import Counter, generate_latest
+
+app = Flask(__name__)
+
+# simple counter metric
+REQUEST_COUNT = Counter("api_requests_total", "Total API Requests")
+
+@app.route("/")
+def home():
+    REQUEST_COUNT.inc()
+    return "Hello, this is my API!"
+
+@app.route("/metrics")
+def metrics():
+    return generate_latest(), 200, {"Content-Type": "text/plain"}
+#dockerfile
+FROM python:3.9
+WORKDIR /app
+COPY . .
+RUN pip install flask prometheus_client
+CMD ["python", "app.py"]
+#prometherous.yml
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "simple-api"
+    static_configs:
+      - targets: ["api:5000"]
+#docker-compose.yml
+version: '3.8'
+services:
+  api:
+    build: .
+    ports:
+      - "5000:5000"
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
